@@ -13,40 +13,61 @@ x-defaults: &defaults
   build: .
   depends_on:
     - redis
-    - postgres
-    - memcached
-    - smtp
+    - db
+#    - postgres
+#    - memcached
+#    - smtp
 
   environment:
     # Run `docker-compose run web config generate-secret-key`
     # to get the SENTRY_SECRET_KEY value.
     SENTRY_SECRET_KEY: ''
-    SENTRY_MEMCACHED_HOST: memcached
+#    SENTRY_MEMCACHED_HOST: memcached
     SENTRY_REDIS_HOST: redis
-    SENTRY_POSTGRES_HOST: postgres
-    SENTRY_EMAIL_HOST: smtp
+    SENTRY_MARIADB_HOST: "mariadb://sentry:!456@db:3306/sentry"
+#    SENTRY_POSTGRES_HOST: postgres
+#    SENTRY_EMAIL_HOST: smtp
   volumes:
     - sentry-data:/var/lib/sentry/files
 
 
 services:
-  smtp:
-    restart: unless-stopped
-    image: tianon/exim4
-
-  memcached:
-    restart: unless-stopped
-    image: memcached:1.4
-
+#  smtp:
+#    restart: unless-stopped
+#    image: tianon/exim4
+#
+#  memcached:
+#    restart: unless-stopped
+#    image: memcached:1.4
+#
   redis:
     restart: unless-stopped
     image: redis:3.2-alpine
 
-  postgres:
+  db:
     restart: unless-stopped
-    image: postgres:9.5
+    image: mariadb
+    environment:
+      MYSQL_ROOT_PASSWORD: "!123"
+      MYSQL_DATABASE: "sentry"
+      MYSQL_USER: "sentry"
+      MYSQL_PASSWORD: "!456"
     volumes:
-      - sentry-postgres:/var/lib/postgresql/data
+    - sentry-db:/var/lib/mysql
+
+  phpmyadmin:
+    restart: unless-stopped
+    image: phpmyadmin/phpmyadmin
+    links:
+    - db:db
+    ports:
+    - 9091:80
+#
+#  postgres:
+#    restart: unless-stopped
+#    image: postgres:9.5
+#    volumes:
+#      - sentry-postgres:/var/lib/postgresql/data
 
   web:
     <<: *defaults
@@ -64,4 +85,4 @@ services:
 
 volumes:
     sentry-data:
-    sentry-postgres:
+    sentry-db:
