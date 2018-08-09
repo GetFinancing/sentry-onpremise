@@ -41,34 +41,61 @@ import os.path
 CONF_ROOT = os.path.dirname(__file__)
 
 postgres = env('SENTRY_POSTGRES_HOST') or (env('POSTGRES_PORT_5432_TCP_ADDR') and 'postgres')
+mariadb = env('SENTRY_DB_HOST')
 if postgres:
     DATABASES = {
         'default': {
             'ENGINE': 'sentry.db.postgres',
             'NAME': (
-                env('SENTRY_DB_NAME')
-                or env('POSTGRES_ENV_POSTGRES_USER')
-                or 'postgres'
+                    env('SENTRY_DB_NAME')
+                    or env('POSTGRES_ENV_POSTGRES_USER')
+                    or 'postgres'
             ),
             'USER': (
-                env('SENTRY_DB_USER')
-                or env('POSTGRES_ENV_POSTGRES_USER')
-                or 'postgres'
+                    env('SENTRY_DB_USER')
+                    or env('POSTGRES_ENV_POSTGRES_USER')
+                    or 'postgres'
             ),
             'PASSWORD': (
-                env('SENTRY_DB_PASSWORD')
-                or env('POSTGRES_ENV_POSTGRES_PASSWORD')
-                or ''
+                    env('SENTRY_DB_PASSWORD')
+                    or env('POSTGRES_ENV_POSTGRES_PASSWORD')
+                    or ''
             ),
             'HOST': postgres,
             'PORT': (
-                env('SENTRY_POSTGRES_PORT')
-                or ''
+                    env('SENTRY_POSTGRES_PORT')
+                    or ''
             ),
             'OPTIONS': {
                 'autocommit': True,
             },
         },
+    }
+if mariadb:
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.mysql',
+            'NAME': (
+                    env('SENTRY_DB_NAME')
+                    or 'sentry'
+            ),
+            'USER': (
+                    env('SENTRY_DB_USER')
+                    or 'sentry'
+            ),
+            'PASSWORD': (
+                    env('SENTRY_DB_PASSWORD')
+                    or ''
+            ),
+            'HOST': mariadb,
+            'PORT': (
+                    env('SENTRY_DB_PORT')
+                    or ''
+            ),
+            'OPTIONS': {
+                'autocommit': True,
+            },
+        }
     }
 
 # You should not change this setting after your database has been created
@@ -95,7 +122,8 @@ SENTRY_SINGLE_ORGANIZATION = env('SENTRY_SINGLE_ORGANIZATION', True)
 
 redis = env('SENTRY_REDIS_HOST') or (env('REDIS_PORT_6379_TCP_ADDR') and 'redis')
 if not redis:
-    raise Exception('Error: REDIS_PORT_6379_TCP_ADDR (or SENTRY_REDIS_HOST) is undefined, did you forget to `--link` a redis container?')
+    raise Exception(
+        'Error: REDIS_PORT_6379_TCP_ADDR (or SENTRY_REDIS_HOST) is undefined, did you forget to `--link` a redis container?')
 
 redis_password = env('SENTRY_REDIS_PASSWORD') or ''
 redis_port = env('SENTRY_REDIS_PORT') or '6379'
@@ -126,8 +154,8 @@ SENTRY_OPTIONS.update({
 memcached = env('SENTRY_MEMCACHED_HOST') or (env('MEMCACHED_PORT_11211_TCP_ADDR') and 'memcached')
 if memcached:
     memcached_port = (
-        env('SENTRY_MEMCACHED_PORT')
-        or '11211'
+            env('SENTRY_MEMCACHED_PORT')
+            or '11211'
     )
     CACHES = {
         'default': {
@@ -152,23 +180,22 @@ rabbitmq = env('SENTRY_RABBITMQ_HOST') or (env('RABBITMQ_PORT_5672_TCP_ADDR') an
 
 if rabbitmq:
     BROKER_URL = (
-        'amqp://' + (
+            'amqp://' + (
             env('SENTRY_RABBITMQ_USERNAME')
             or env('RABBITMQ_ENV_RABBITMQ_DEFAULT_USER')
             or 'guest'
-        ) + ':' + (
-            env('SENTRY_RABBITMQ_PASSWORD')
-            or env('RABBITMQ_ENV_RABBITMQ_DEFAULT_PASS')
-            or 'guest'
-        ) + '@' + rabbitmq + '/' + (
-            env('SENTRY_RABBITMQ_VHOST')
-            or env('RABBITMQ_ENV_RABBITMQ_DEFAULT_VHOST')
-            or '/'
-        )
+    ) + ':' + (
+                    env('SENTRY_RABBITMQ_PASSWORD')
+                    or env('RABBITMQ_ENV_RABBITMQ_DEFAULT_PASS')
+                    or 'guest'
+            ) + '@' + rabbitmq + '/' + (
+                    env('SENTRY_RABBITMQ_VHOST')
+                    or env('RABBITMQ_ENV_RABBITMQ_DEFAULT_VHOST')
+                    or '/'
+            )
     )
 else:
     BROKER_URL = 'redis://:' + redis_password + '@' + redis + ':' + redis_port + '/' + redis_db
-
 
 ###############
 # Rate Limits #
@@ -223,10 +250,16 @@ SENTRY_DIGESTS = 'sentry.digests.backends.redis.RedisBackend'
 # Uploaded media uses these `filestore` settings. The available
 # backends are either `filesystem` or `s3`.
 
-SENTRY_OPTIONS['filestore.backend'] = 'filesystem'
-SENTRY_OPTIONS['filestore.options'] = {
-    'location': env('SENTRY_FILESTORE_DIR'),
-}
+SENTRY_OPTIONS['filestore.backend'] = env('SENTRY_FILESTORE_BACKEND', 'filesystem')
+if SENTRY_OPTIONS['filestore.backend'] == 'filesystem':
+    SENTRY_OPTIONS['filestore.options'] = {
+        'location': env('SENTRY_FILESTORE_DIR'),
+    }
+elif SENTRY_OPTIONS['filestore.backend'] == 's3':
+    SENTRY_OPTIONS['filestore.options'] = {
+        'bucket_name': env('SENTRY_FILESTORE_BUCKET_NAME', 'sentry'),
+    }
+
 
 ##############
 # Web Server #
@@ -304,3 +337,6 @@ if 'GITHUB_APP_ID' in os.environ:
 if 'BITBUCKET_CONSUMER_KEY' in os.environ:
     BITBUCKET_CONSUMER_KEY = env('BITBUCKET_CONSUMER_KEY')
     BITBUCKET_CONSUMER_SECRET = env('BITBUCKET_CONSUMER_SECRET')
+
+INSTALLED_APPS += ('sentry_telegram',)
+
